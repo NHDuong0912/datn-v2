@@ -1,0 +1,52 @@
+.dashboard-container {
+    padding: 20px;
+}
+.card {
+    margin-bottom: 20px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Replace sidebar styles with navbar styles */
+.navbar {
+    background-color: #343a40;
+    padding: 1rem;
+}
+
+.navbar-brand {
+    color: #fff !important;
+    font-size: 1.25rem;
+    padding-left: 1rem;
+}
+
+.nav-link {
+    color: #adb5bd !important;
+    padding: 0.5rem 1rem !important;
+    margin: 0 0.25rem;
+}
+
+.nav-link:hover {
+    color: #fff !important;
+    background-color: #4b545c;
+    border-radius: 0.25rem;
+}
+
+.nav-link.active {
+    color: #fff !important;
+    background-color: #007bff;
+    border-radius: 0.25rem;
+}
+
+.navbar-nav {
+    align-items: center;
+}
+
+.logout-btn {
+    color: #ff6b6b !important;
+    margin-left: 1rem;
+}
+
+/* Adjust main content for navbar */
+.main-content {
+    padding-top: 4.5rem;
+    width: 100%;
+}
