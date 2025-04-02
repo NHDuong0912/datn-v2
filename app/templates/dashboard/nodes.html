@@ -87,12 +87,14 @@
                         <th scope="col">Tên</th>
                         <th scope="col">IP Address</th>
                         <th scope="col">Trạng thái</th>
+                        <th scope="col">Cấu hình theo dõi</th>
+                        <th scope="col">Cảnh báo</th>
                         <th scope="col" class="text-center">Chi tiết</th>
                     </tr>
                 </thead>
                 <tbody id="nodesTableBody">
                     <tr>
-                        <td colspan="5" class="text-center">Đang tải dữ liệu...</td>
+                        <td colspan="7" class="text-center">Đang tải dữ liệu...</td>
                     </tr>
                 </tbody>
             </table>
@@ -187,6 +189,52 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
                 <button type="button" class="btn btn-danger" id="confirmDeleteNodeButton">Xóa</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Manual Check Modal -->
+<div class="modal fade" id="checkConfigModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Kiểm tra cấu hình theo dõi</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="checkConfigNodeId">
+                <div id="checkConfigResult" class="mb-3">Chưa kiểm tra.</div>
+                <button class="btn btn-primary" onclick="performManualCheck()">Kiểm tra</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Alert Modal -->
+<div class="modal fade" id="addAlertModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Thêm Cảnh báo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addAlertForm">
+                    <input type="hidden" id="alertNodeId">
+                    <div class="mb-3">
+                        <label for="alertMessage" class="form-label">Nội dung Cảnh báo</label>
+                        <input type="text" class="form-control" id="alertMessage" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="alertDestination" class="form-label">Telegram Chat ID</label>
+                        <input type="text" class="form-control" id="alertDestination" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-primary" id="saveAlertButton">Lưu</button>
             </div>
         </div>
     </div>

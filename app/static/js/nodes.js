@@ -19,6 +19,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const nodeId = this.getAttribute('data-node-id');
             deleteNode(nodeId);
         });
+        document.getElementById('saveAlertButton').addEventListener('click', saveAlert);
     } catch (error) {
         console.error('Error setting up event listeners:', error);
     }
@@ -46,13 +47,35 @@ async function loadNodes() {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
-        const data = await response.json();
-        
-        if (!data || !Array.isArray(data)) {
+        const nodes = await response.json();
+        if (!nodes || !Array.isArray(nodes)) {
             throw new Error('Invalid response format');
         }
 
-        updateNodesTable(data);
+        // Fetch metrics for each node
+        const metricsPromises = nodes.map(async (node) => {
+            try {
+                const metricsResponse = await fetch(`/api/nodes/${node.id}/metrics`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (!metricsResponse.ok) {
+                    throw new Error('Failed to fetch metrics');
+                }
+
+                const metrics = await metricsResponse.json();
+                return { ...node, metrics };
+            } catch (error) {
+                console.error(`Error fetching metrics for node ${node.id}:`, error);
+                return { ...node, metrics: { nodeExporter: 'Null', promtail: 'Null' } };
+            }
+        });
+
+        const nodesWithMetrics = await Promise.all(metricsPromises);
+        updateNodesTable(nodesWithMetrics);
     } catch (error) {
         console.error('Error loading nodes:', error);
         tbody.innerHTML = `
@@ -76,28 +99,41 @@ function updateNodesTable(nodes) {
         console.error('Table body element not found');
         return;
     }
-    
+
     try {
         if (!nodes || nodes.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" class="text-center">Không có nodes nào</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center">Không có nodes nào</td></tr>';
             return;
         }
 
         let nodesHtml = '';
-        
+
         nodes.forEach((node, index) => {
             const statusClass = node.status === 'active' ? 'success' : 'danger';
             const statusText = node.status === 'active' ? 'Hoạt động' : 'Không hoạt động';
-            const nodeData = encodeURIComponent(JSON.stringify(node));
-            
+            const nodeExporter = node.metrics?.nodeExporter || 'NodeExporter Null';
+            const promtail = node.metrics?.promtail || 'Promtail Null';
+
             nodesHtml += `
                 <tr>
                     <td>${index + 1}</td>
                     <td>${node.name || ''}</td>
                     <td>${node.ipAddress || ''}</td>
                     <td><span class="badge bg-${statusClass}">${statusText}</span></td>
+                    <td>
+                        <span class="badge bg-warning text-dark">${nodeExporter}</span>
+                        <span class="badge bg-primary">${promtail}</span>
+                        <button class="btn btn-sm btn-link text-info" onclick="openCheckConfigModal(${node.id})">
+                            <i class="bi bi-gear"></i>
+                        </button>
+                    </td>
                     <td class="text-center">
-                        <button class="btn btn-sm btn-link text-info" data-node='${nodeData}' onclick="openEditNodeModal(this)">
+                        <button class="btn btn-sm btn-link text-success" onclick="openAddAlertModal('${node.id}')">
+                            <i class="bi bi-plus-circle"></i>
+                        </button>
+                    </td>
+                    <td class="text-center">
+                        <button class="btn btn-sm btn-link text-info" data-node='${encodeURIComponent(JSON.stringify(node))}' onclick="openEditNodeModal(this)">
                             <i class="bi bi-pencil fs-5"></i>
                         </button>
                         <button class="btn btn-sm btn-link text-danger" data-node-id="${node.id}" onclick="openDeleteNodeModal(this)">
@@ -107,14 +143,13 @@ function updateNodesTable(nodes) {
                 </tr>
             `;
         });
-        
-        tbody.innerHTML = nodesHtml;
 
+        tbody.innerHTML = nodesHtml;
     } catch (error) {
         console.error('Error updating nodes table:', error);
         tbody.innerHTML = `
             <tr>
-                <td colspan="5" class="text-center">
+                <td colspan="7" class="text-center">
                     <div class="alert alert-danger mb-0">
                         Lỗi hiển thị dữ liệu: ${error.message}
                         <button class="btn btn-link p-0 ms-2" onclick="loadNodes()">
@@ -124,6 +159,48 @@ function updateNodesTable(nodes) {
                 </td>
             </tr>
         `;
+    }
+}
+
+// Open the manual check modal
+function openCheckConfigModal(nodeId) {
+    try {
+        const modal = new bootstrap.Modal(document.getElementById('checkConfigModal'));
+        document.getElementById('checkConfigNodeId').value = nodeId;
+        document.getElementById('checkConfigResult').innerHTML = 'Chưa kiểm tra.';
+        modal.show();
+    } catch (error) {
+        console.error('Error opening config modal:', error);
+        alert('Không thể mở form kiểm tra cấu hình');
+    }
+}
+
+// Perform manual check
+async function performManualCheck() {
+    const nodeId = document.getElementById('checkConfigNodeId').value;
+    const resultContainer = document.getElementById('checkConfigResult');
+    resultContainer.textContent = 'Đang kiểm tra...';
+
+    try {
+        const response = await fetch(`/api/nodes/${nodeId}/metrics`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch metrics');
+        }
+
+        const metrics = await response.json();
+        resultContainer.innerHTML = `
+            <p>NodeExporter: ${metrics.nodeExporter}</p>
+            <p>Promtail: ${metrics.promtail}</p>
+        `;
+    } catch (error) {
+        console.error('Error performing manual check:', error);
+        resultContainer.textContent = 'Không thể kiểm tra cấu hình.';
     }
 }
 
@@ -315,5 +392,56 @@ function openDeleteNodeModal(button) {
     } catch (error) {
         console.error('Error opening delete modal:', error);
         alert('Không thể mở form xóa');
+    }
+}
+
+// Open the Add Alert Modal
+function openAddAlertModal(nodeId) {
+    try {
+        const modal = new bootstrap.Modal(document.getElementById('addAlertModal'));
+        document.getElementById('alertNodeId').value = nodeId;
+        modal.show();
+    } catch (error) {
+        console.error('Error opening alert modal:', error);
+        alert('Không thể mở form thêm cảnh báo');
+    }
+}
+
+// Save the Alert
+async function saveAlert() {
+    try {
+        const nodeId = document.getElementById('alertNodeId').value;
+        const message = document.getElementById('alertMessage').value;
+        const destination = document.getElementById('alertDestination').value;
+
+        if (!message || !destination) {
+            alert('Vui lòng điền đầy đủ thông tin');
+            return;
+        }
+
+        console.log('Sending alert data:', { nodeId, message, destination }); // Debug log
+
+        const response = await fetch(`/api/nodes/${nodeId}/alerts`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+            },
+            body: JSON.stringify({ message, destination })
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to create alert');
+        }
+
+        // Close modal and reload nodes
+        const modal = bootstrap.Modal.getInstance(document.getElementById('addAlertModal'));
+        modal.hide();
+        await loadNodes();
+        
+    } catch (error) {
+        console.error('Error saving alert:', error);
+        alert('Không thể thêm cảnh báo: ' + error.message);
     }
 }

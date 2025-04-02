@@ -3,7 +3,11 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 from enum import Enum
 import json
-from flask_login import UserMixin
+from flask_login import UserMixin, logout_user
+from flask import Blueprint, jsonify
+from flask_jwt_extended import jwt_required, get_jwt_identity
+
+auth = Blueprint('auth', __name__)
 
 class TypeScript(Enum):
     NODE_EXPORTER = "node_exporter"
@@ -58,25 +62,16 @@ class Node(db.Model):
     __tablename__ = 'nodes'
 
     id = db.Column(db.Integer, primary_key=True)
-    ownerId = db.Column(db.Integer, db.ForeignKey('users.id'))
     name = db.Column(db.String(100))
-    status = db.Column(db.String(20))
-    ipAddress = db.Column(db.String(50))
+    ipAddress = db.Column(db.String(100))
+    status = db.Column(db.String(50))
     portNodeExporter = db.Column(db.Integer)
     portPromtail = db.Column(db.Integer)
-    
-    # Relationships
-    performance_data = db.relationship('PerformanceData', backref='node', lazy='dynamic')
-    onchain_data = db.relationship('OnchainData', backref='node', lazy='dynamic')
-    alerts = db.relationship('Alert', backref='node', lazy='dynamic')
-    reports = db.relationship('Report', backref='node', lazy='dynamic')
-    web_displays = db.relationship('WebDisplay', backref='node', lazy='dynamic')
-    script_generators = db.relationship('ScriptGenerator', backref='node', lazy='dynamic')
-    data_collection_configs = db.relationship('DataCollectionConfig', backref='node', lazy='dynamic')
-    
+    ownerId = db.Column(db.Integer, db.ForeignKey('users.id'))
+
     @classmethod
     def get_nodes_by_user(cls, user_id, search=None, status=None):
-        """Get all nodes for a user with optional filters"""
+        """Get all nodes for a user with optional filters."""
         query = cls.query.filter_by(ownerId=user_id)
         
         if search:
@@ -86,50 +81,8 @@ class Node(db.Model):
             
         return query.all()
 
-    def update_node(self, data):
-        """Update node with new data"""
-        try:
-            self.name = data.get('name', self.name)
-            self.ipAddress = data.get('ipAddress', self.ipAddress)
-            self.portNodeExporter = data.get('portNodeExporter', self.portNodeExporter)
-            self.portPromtail = data.get('portPromtail', self.portPromtail)
-            db.session.commit()
-            return True
-        except Exception as e:
-            db.session.rollback()
-            raise Exception(f"Failed to update node: {str(e)}")
-
-    @classmethod
-    def create_node(cls, owner_id, data):
-        """Create a new node"""
-        try:
-            new_node = cls(
-                ownerId=owner_id,
-                name=data.get('name'),
-                ipAddress=data.get('ipAddress'),
-                portNodeExporter=data.get('portNodeExporter'),
-                portPromtail=data.get('portPromtail'),
-                status=data.get('status', 'inactive')
-            )
-            db.session.add(new_node)
-            db.session.commit()
-            return new_node
-        except Exception as e:
-            db.session.rollback()
-            raise Exception(f"Failed to create node: {str(e)}")
-
-    def delete_node(self):
-        """Delete this node"""
-        try:
-            db.session.delete(self)
-            db.session.commit()
-            return True
-        except Exception as e:
-            db.session.rollback()
-            raise Exception(f"Failed to delete node: {str(e)}")
-
     def to_dict(self):
-        """Convert node to dictionary"""
+        """Convert node to dictionary."""
         return {
             'id': self.id,
             'name': self.name,
@@ -146,12 +99,19 @@ class AccessLog(db.Model):
     userId = db.Column(db.Integer, db.ForeignKey('users.id'))
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
     action = db.Column(db.String(100))
-    
-    def logAccess(self, userId, action):
-        pass
-    
-    def getAccessStatus(self, userId):
-        return AccessLog
+
+    @classmethod
+    def log_access(cls, user_id, action):
+        """Log a user action."""
+        try:
+            print(f"Logging access: user_id={user_id}, action={action}")  # Debug statement
+            log = cls(userId=user_id, action=action)
+            db.session.add(log)
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            print(f"Failed to log access: {str(e)}")  # Debug statement
+            raise Exception(f"Failed to log access: {str(e)}")
 
 class DataCollectionConfig(db.Model):
     __tablename__ = 'data_collection_configs'
@@ -204,22 +164,39 @@ class Alert(db.Model):
     __tablename__ = 'alerts'
 
     id = db.Column(db.Integer, primary_key=True)
-    nodeId = db.Column(db.Integer, db.ForeignKey('nodes.id'))
-    threshold = db.Column(db.Float)
-    message = db.Column(db.String(200))
-    destination = db.Column(db.String(100))
-    
-    def configureAlert(self, id, threshold, float):
-        pass
-    
-    def sendAlert(self, message):
-        pass
-    
-    def checkThreshold(self, data):
-        return False
-    
-    def checkLogForAlerts(self, id, query):
-        return False
+    nodeId = db.Column(db.Integer, db.ForeignKey('nodes.id'), nullable=False)
+    message = db.Column(db.String(200), nullable=False)
+    destination = db.Column(db.String(100), nullable=False)
+
+    # Add relationship to Node
+    node = db.relationship('Node', backref=db.backref('alerts', lazy=True))
+
+    @classmethod
+    def create_alert(cls, node_id, message, destination):
+        """Create a new alert for a node."""
+        try:
+            print(f"Creating alert for node {node_id}")  # Debug log
+            alert = cls(
+                nodeId=node_id,
+                message=message,
+                destination=destination
+            )
+            db.session.add(alert)
+            db.session.commit()
+            return alert
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error creating alert: {str(e)}")  # Debug log
+            raise Exception(f"Failed to create alert: {str(e)}")
+
+    def to_dict(self):
+        """Convert alert to dictionary."""
+        return {
+            'id': self.id,
+            'nodeId': self.nodeId,
+            'message': self.message,
+            'destination': self.destination
+        }
 
 class Report(db.Model):
     __tablename__ = 'reports'
@@ -282,3 +259,18 @@ class ExternalSystem(db.Model):
     
     def addTargetToGrafana(self, nodeId, ipAddress, port):
         return False
+
+@auth.route('/logout', methods=['POST'])
+@jwt_required()
+def logout():
+    current_user_id = get_jwt_identity()
+    
+    # Log the logout action
+    try:
+        AccessLog.log_access(current_user_id, "User logged out")
+        print("Logout action logged successfully")  # Debug statement
+    except Exception as e:
+        print(f"Failed to log access: {str(e)}")
+    
+    logout_user()
+    return jsonify({'msg': 'User logged out successfully'}), 200

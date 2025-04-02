@@ -47,6 +47,13 @@ def login():
     if user and user.check_password(data.get('password')):
         login_user(user)
         access_token = create_access_token(identity=user.id)
+        
+        # Log the login action
+        try:
+            AccessLog.log_access(user.id, "User logged in")
+        except Exception as e:
+            print(f"Failed to log access: {str(e)}")
+        
         return jsonify({'access_token': access_token}), 200
     
     return jsonify({'msg': 'Invalid username or password'}), 401
@@ -91,3 +98,17 @@ def update_profile():
     db.session.commit()
     
     return jsonify({"msg": "Profile updated successfully"}), 200
+
+@auth.route('/logout', methods=['POST'])
+@jwt_required()
+def logout():
+    current_user_id = get_jwt_identity()
+    
+    # Log the logout action
+    try:
+        AccessLog.log_access(current_user_id, "User logged out")
+    except Exception as e:
+        print(f"Failed to log access: {str(e)}")
+    
+    logout_user()
+    return jsonify({'msg': 'User logged out successfully'}), 200

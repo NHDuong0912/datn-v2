@@ -33,7 +33,6 @@ document.getElementById('login-form').addEventListener('submit', function(event)
             error.json().then(errorData => {
                 const errorElement = document.getElementById('error-message');
                 errorElement.textContent = errorData.msg || 'Login failed';
-                errorElement.classList.remove('d-none');
             });
         } else {
             console.error('Error:', error);

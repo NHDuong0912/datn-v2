@@ -1,7 +1,8 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from app.models.models import Node, User
+from app.models.models import Node, User, Alert
 from app import db
+import requests
 
 api = Blueprint('api', __name__)
 
@@ -23,6 +24,7 @@ def get_nodes():
         nodes = Node.get_nodes_by_user(current_user_id, search, status)
         return jsonify([node.to_dict() for node in nodes])
     except Exception as e:
+        print(f"Error in get_nodes: {str(e)}")  # Log the error
         return jsonify({'error': str(e)}), 500
 
 @api.route('/nodes', methods=['POST'])
@@ -66,4 +68,70 @@ def delete_node(node_id):
         node.delete_node()
         return jsonify({'message': 'Node deleted successfully'})
     except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@api.route('/nodes/<int:node_id>/metrics', methods=['GET'])
+@jwt_required()
+def check_node_metrics(node_id):
+    try:
+        current_user_id = get_jwt_identity()
+        node = Node.query.filter_by(id=node_id, ownerId=current_user_id).first()
+
+        if not node:
+            return jsonify({'error': 'Node not found'}), 404
+
+        # Check Node Exporter
+        node_exporter_url = f"http://{node.ipAddress}:{node.portNodeExporter}/metrics"
+        try:
+            response = requests.get(node_exporter_url, timeout=5)
+            node_exporter_status = f"NodeExporter {node.portNodeExporter}" if response.status_code == 200 else "NodeExporter Null"
+        except requests.exceptions.RequestException:
+            node_exporter_status = "NodeExporter Null"
+
+        # Check Promtail
+        promtail_url = f"http://{node.ipAddress}:{node.portPromtail}/metrics"
+        try:
+            response = requests.get(promtail_url, timeout=5)
+            promtail_status = f"Promtail {node.portPromtail}" if response.status_code == 200 else "Promtail Null"
+        except requests.exceptions.RequestException:
+            promtail_status = "Promtail Null"
+
+        return jsonify({
+            'nodeExporter': node_exporter_status,
+            'promtail': promtail_status
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@api.route('/nodes/<int:node_id>/alerts', methods=['GET', 'POST'])
+@jwt_required()
+def manage_alerts(node_id):
+    try:
+        current_user_id = get_jwt_identity()
+        node = Node.query.filter_by(id=node_id, ownerId=current_user_id).first()
+
+        if not node:
+            return jsonify({'error': 'Node not found'}), 404
+
+        if request.method == 'GET':
+            alerts = Alert.query.filter_by(nodeId=node_id).all()
+            return jsonify([alert.to_dict() for alert in alerts])
+
+        # Handle POST request
+        data = request.get_json()
+        print("Received alert data:", data)  # Debug log
+        
+        if not data or 'message' not in data or 'destination' not in data:
+            return jsonify({'error': 'Missing required fields'}), 400
+
+        alert = Alert.create_alert(
+            node_id=node_id,
+            message=data['message'],
+            destination=data['destination']
+        )
+
+        return jsonify(alert.to_dict()), 201
+
+    except Exception as e:
+        print(f"Error managing alerts: {str(e)}")  # Debug log
         return jsonify({'error': str(e)}), 500
