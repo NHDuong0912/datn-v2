@@ -81,6 +81,61 @@ class Node(db.Model):
             
         return query.all()
 
+    @classmethod
+    def create_node(cls, owner_id, data):
+        """Create a new node."""
+        try:
+            node = cls(
+                name=data.get('name'),
+                ipAddress=data.get('ipAddress'),
+                status=data.get('status', 'inactive'),
+                portNodeExporter=data.get('portNodeExporter'),
+                portPromtail=data.get('portPromtail'),
+                ownerId=owner_id
+            )
+            db.session.add(node)
+            db.session.commit()
+            return node
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error creating node: {str(e)}")  # Debug log
+            raise Exception(f"Failed to create node: {str(e)}")
+
+    def update_node(self, data):
+        """Update node information."""
+        try:
+            if 'name' in data:
+                self.name = data['name']
+            if 'ipAddress' in data:
+                self.ipAddress = data['ipAddress']
+            if 'portNodeExporter' in data:
+                self.portNodeExporter = data['portNodeExporter']
+            if 'portPromtail' in data:
+                self.portPromtail = data['portPromtail']
+            if 'status' in data:
+                self.status = data['status']
+                
+            db.session.commit()
+            return self
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error updating node: {str(e)}")  # Debug log
+            raise Exception(f"Failed to update node: {str(e)}")
+
+    def delete_node(self):
+        """Delete the node."""
+        try:
+            # Delete related alerts first
+            Alert.query.filter_by(nodeId=self.id).delete()
+            
+            # Delete the node
+            db.session.delete(self)
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error deleting node: {str(e)}")  # Debug log
+            raise Exception(f"Failed to delete node: {str(e)}")
+
     def to_dict(self):
         """Convert node to dictionary."""
         return {

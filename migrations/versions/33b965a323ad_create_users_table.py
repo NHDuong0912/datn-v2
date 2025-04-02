@@ -1,8 +1,8 @@
-"""Initial migration
+"""Create users table
 
-Revision ID: e89bda5f878d
+Revision ID: 33b965a323ad
 Revises: 
-Create Date: 2025-03-30 15:46:23.804296
+Create Date: 2025-04-02 22:24:07.267704
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'e89bda5f878d'
+revision = '33b965a323ad'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -44,21 +44,20 @@ def upgrade():
     )
     op.create_table('nodes',
     sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('ownerId', sa.Integer(), nullable=True),
     sa.Column('name', sa.String(length=100), nullable=True),
-    sa.Column('status', sa.String(length=20), nullable=True),
-    sa.Column('ipAddress', sa.String(length=50), nullable=True),
+    sa.Column('ipAddress', sa.String(length=100), nullable=True),
+    sa.Column('status', sa.String(length=50), nullable=True),
     sa.Column('portNodeExporter', sa.Integer(), nullable=True),
     sa.Column('portPromtail', sa.Integer(), nullable=True),
+    sa.Column('ownerId', sa.Integer(), nullable=True),
     sa.ForeignKeyConstraint(['ownerId'], ['users.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('alerts',
     sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('nodeId', sa.Integer(), nullable=True),
-    sa.Column('threshold', sa.Float(), nullable=True),
-    sa.Column('message', sa.String(length=200), nullable=True),
-    sa.Column('destination', sa.String(length=100), nullable=True),
+    sa.Column('nodeId', sa.Integer(), nullable=False),
+    sa.Column('message', sa.String(length=200), nullable=False),
+    sa.Column('destination', sa.String(length=100), nullable=False),
     sa.ForeignKeyConstraint(['nodeId'], ['nodes.id'], ),
     sa.PrimaryKeyConstraint('id')
     )

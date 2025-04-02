@@ -206,39 +206,48 @@ async function performManualCheck() {
 
 async function saveNode() {
     const token = localStorage.getItem('auth_token');
-    const name = document.getElementById('nodeName').value;
-    const ipAddress = document.getElementById('nodeIp').value;
+    const name = document.getElementById('nodeName').value.trim();
+    const ipAddress = document.getElementById('nodeIp').value.trim();
     const portNodeExporter = parseInt(document.getElementById('portNodeExporter').value);
     const portPromtail = parseInt(document.getElementById('portPromtail').value);
+
+    // Validate input
+    if (!name || !ipAddress || isNaN(portNodeExporter) || isNaN(portPromtail)) {
+        alert('Vui lòng điền đầy đủ thông tin hợp lệ');
+        return;
+    }
 
     try {
         const response = await fetch('/api/nodes', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + token
+                'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({ 
                 name, 
                 ipAddress, 
                 portNodeExporter,
                 portPromtail,
-                status: 'inactive' // Default status for new nodes
+                status: 'inactive'
             })
         });
 
         if (!response.ok) {
-            throw new Error('Failed to add node');
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to add node');
         }
 
-        // Close modal and reload nodes
+        const result = await response.json();
+        console.log('Node created:', result);  // Debug log
+
         bootstrap.Modal.getInstance(document.getElementById('addNodeModal')).hide();
         document.getElementById('addNodeForm').reset();
-        loadNodes();
+        await loadNodes();
 
     } catch (error) {
-        console.error('Error:', error);
-        alert('Không thể thêm node mới');
+        console.error('Error creating node:', error);
+        alert('Không thể thêm node mới: ' + error.message);
     }
 }
 
