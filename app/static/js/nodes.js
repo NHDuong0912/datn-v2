@@ -247,26 +247,47 @@ async function performManualCheck() {
     const nodeId = document.getElementById('checkConfigNodeId').value;
     const type = document.getElementById('checkConfigType').value;
     const resultContainer = document.getElementById('checkConfigResult');
-    resultContainer.textContent = 'Đang kiểm tra...';
-
+    
     try {
-        const response = await fetch(`/api/nodes/${nodeId}/metrics`, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+        // Get node data
+        const nodeElement = document.querySelector(`[data-node-id="${nodeId}"]`).closest('tr');
+        const nodeData = JSON.parse(decodeURIComponent(
+            nodeElement.querySelector('[data-node]').getAttribute('data-node')
+        ));
+
+        if (type === 'promtail') {
+            resultContainer.textContent = 'Đang kiểm tra Promtail...';
+            
+            // Check Promtail ready endpoint
+            const promtailUrl = `http://${nodeData.ipAddress}:${nodeData.portPromtail}/ready`;
+            const response = await fetch(promtailUrl);
+            
+            if (response.ok) {
+                resultContainer.innerHTML = '<p class="text-success">Promtail đang hoạt động</p>';
+            } else {
+                resultContainer.innerHTML = '<p class="text-danger">Promtail không phản hồi</p>';
             }
-        });
+        } else {
+            // Existing Node Exporter check
+            resultContainer.textContent = 'Đang kiểm tra Node Exporter...';
+            
+            const response = await fetch(`/api/nodes/${nodeId}/metrics`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+                }
+            });
 
-        if (!response.ok) {
-            throw new Error('Failed to fetch metrics');
+            if (!response.ok) {
+                throw new Error('Failed to fetch metrics');
+            }
+
+            const metrics = await response.json();
+            resultContainer.innerHTML = `<p>${metrics.nodeExporter}</p>`;
         }
-
-        const metrics = await response.json();
-        const result = type === 'nodeExporter' ? metrics.nodeExporter : metrics.promtail;
-        resultContainer.innerHTML = `<p>${type === 'nodeExporter' ? 'Node Exporter' : 'Promtail'}: ${result}</p>`;
     } catch (error) {
         console.error('Error performing manual check:', error);
-        resultContainer.textContent = 'Không thể kiểm tra cấu hình.';
+        resultContainer.innerHTML = '<p class="text-danger">Không thể kiểm tra cấu hình</p>';
     }
 }
 
