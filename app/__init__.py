@@ -5,6 +5,7 @@ from flask_login import LoginManager
 from flask_jwt_extended import JWTManager
 from flask_cors import CORS
 from config import Config  # Import Config from our config.py file
+from datetime import timedelta
 
 db = SQLAlchemy()
 migrate = Migrate()
@@ -16,6 +17,10 @@ def create_app(config_class=Config):
     
     # Initialize config
     app.config.from_object(config_class)
+    
+    # JWT Configuration
+    app.config['JWT_SECRET_KEY'] = app.config['SECRET_KEY']
+    app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=6)
     
     # Initialize extensions
     db.init_app(app)

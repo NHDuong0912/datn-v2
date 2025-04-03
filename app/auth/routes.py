@@ -5,6 +5,7 @@ from app.models import User
 from app import db
 from app.models.models import AccessLog
 from werkzeug.security import generate_password_hash, check_password_hash
+from datetime import timedelta
 
 auth = Blueprint('auth', __name__)
 
@@ -46,7 +47,11 @@ def login():
     
     if user and user.check_password(data.get('password')):
         login_user(user)
-        access_token = create_access_token(identity=user.id)
+        # Create token with 6 hour expiration
+        access_token = create_access_token(
+            identity=user.id,
+            expires_delta=timedelta(hours=6)
+        )
         
         # Log the login action
         try:
@@ -54,7 +59,10 @@ def login():
         except Exception as e:
             print(f"Failed to log access: {str(e)}")
         
-        return jsonify({'access_token': access_token}), 200
+        return jsonify({
+            'access_token': access_token,
+            'message': 'Đăng nhập thành công. Token có hiệu lực trong 6 giờ.'
+        }), 200
     
     return jsonify({'msg': 'Invalid username or password'}), 401
 

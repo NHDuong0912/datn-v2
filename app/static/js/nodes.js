@@ -41,7 +41,7 @@ async function loadNodes() {
     const tbody = document.getElementById('nodesTableBody');
 
     // Show loading state
-    tbody.innerHTML = '<tr><td colspan="5" class="text-center">Đang tải dữ liệu...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center">Đang tải dữ liệu...</td></tr>';
 
     try {
         const response = await fetch(`/api/nodes?search=${encodeURIComponent(searchTerm)}&status=${encodeURIComponent(statusFilter)}`, {
