@@ -144,16 +144,16 @@ function updateNodesTable(nodes) {
                     <td>${node.ipAddress || ''}</td>
                     <td><span class="badge bg-${statusClass}">${statusText}</span></td>
                     <td>
-                        <div class="d-flex align-items-center mb-2">
-                            <span class="badge bg-pink text-dark me-2">Node Exporter:</span>
-                            <span class="badge border border-pink bg-light text-dark">Port ${node.portNodeExporter}</span>
+                        <div class="service-row">
+                            <span class="badge bg-pink text-dark service-label">Node Exporter</span>
+                            <span class="badge border border-pink bg-light text-dark service-port">${node.portNodeExporter}</span>
                             <button class="btn btn-sm btn-link text-info p-0 ms-2" onclick="openCheckConfigModal(${node.id}, 'nodeExporter')">
                                 <i class="bi bi-gear"></i>
                             </button>
                         </div>
-                        <div class="d-flex align-items-center">
-                            <span class="badge bg-info text-dark me-2">Promtail:</span>
-                            <span class="badge border border-info bg-light text-dark">Port ${node.portPromtail}</span>
+                        <div class="service-row">
+                            <span class="badge bg-info text-dark service-label">Promtail</span>
+                            <span class="badge border border-info bg-light text-dark service-port">${node.portPromtail}</span>
                             <button class="btn btn-sm btn-link text-info p-0 ms-2" onclick="openCheckConfigModal(${node.id}, 'promtail')">
                                 <i class="bi bi-gear"></i>
                             </button>

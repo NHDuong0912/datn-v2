@@ -62,8 +62,35 @@
 .badge {
     font-size: 0.875rem;
     padding: 0.4em 0.8em;
+    display: inline-block;
+    text-align: center;
+    white-space: nowrap;
 }
 
 .badge.border {
-    border-width: 2px !important;
+    border-width: 1px !important;
+}
+
+/* Service badges styling */
+.service-label {
+    width: 130px;
+    text-align: left;
+    margin-right: 0.5rem;
+}
+
+.service-port {
+    width: 60px;
+    text-align: center;
+}
+
+.service-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    margin-bottom: 0.5rem;
+    width: 100%;
+}
+
+.service-row:last-child {
+    margin-bottom: 0;
 }
