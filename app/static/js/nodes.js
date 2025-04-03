@@ -121,11 +121,18 @@ function updateNodesTable(nodes) {
                     <td>${node.ipAddress || ''}</td>
                     <td><span class="badge bg-${statusClass}">${statusText}</span></td>
                     <td>
-                        <span class="badge bg-warning text-dark">${nodeExporter}</span>
-                        <span class="badge bg-primary">${promtail}</span>
-                        <button class="btn btn-sm btn-link text-info" onclick="openCheckConfigModal(${node.id})">
-                            <i class="bi bi-gear"></i>
-                        </button>
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="badge bg-warning text-dark me-2">${nodeExporter}</span>
+                            <button class="btn btn-sm btn-link text-info p-0" onclick="openCheckConfigModal(${node.id}, 'nodeExporter')">
+                                <i class="bi bi-gear"></i>
+                            </button>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <span class="badge bg-primary me-2">${promtail}</span>
+                            <button class="btn btn-sm btn-link text-info p-0" onclick="openCheckConfigModal(${node.id}, 'promtail')">
+                                <i class="bi bi-gear"></i>
+                            </button>
+                        </div>
                     </td>
                     <td class="text-center">
                         <button class="btn btn-sm btn-link text-success" onclick="openAddAlertModal('${node.id}')">
@@ -163,11 +170,17 @@ function updateNodesTable(nodes) {
 }
 
 // Open the manual check modal
-function openCheckConfigModal(nodeId) {
+function openCheckConfigModal(nodeId, type) {
     try {
         const modal = new bootstrap.Modal(document.getElementById('checkConfigModal'));
         document.getElementById('checkConfigNodeId').value = nodeId;
+        document.getElementById('checkConfigType').value = type;
         document.getElementById('checkConfigResult').innerHTML = 'Chưa kiểm tra.';
+        
+        // Update modal title based on type
+        const modalTitle = document.querySelector('#checkConfigModal .modal-title');
+        modalTitle.textContent = `Kiểm tra cấu hình ${type === 'nodeExporter' ? 'Node Exporter' : 'Promtail'}`;
+        
         modal.show();
     } catch (error) {
         console.error('Error opening config modal:', error);
@@ -178,6 +191,7 @@ function openCheckConfigModal(nodeId) {
 // Perform manual check
 async function performManualCheck() {
     const nodeId = document.getElementById('checkConfigNodeId').value;
+    const type = document.getElementById('checkConfigType').value;
     const resultContainer = document.getElementById('checkConfigResult');
     resultContainer.textContent = 'Đang kiểm tra...';
 
@@ -194,10 +208,8 @@ async function performManualCheck() {
         }
 
         const metrics = await response.json();
-        resultContainer.innerHTML = `
-            <p>NodeExporter: ${metrics.nodeExporter}</p>
-            <p>Promtail: ${metrics.promtail}</p>
-        `;
+        const result = type === 'nodeExporter' ? metrics.nodeExporter : metrics.promtail;
+        resultContainer.innerHTML = `<p>${type === 'nodeExporter' ? 'Node Exporter' : 'Promtail'}: ${result}</p>`;
     } catch (error) {
         console.error('Error performing manual check:', error);
         resultContainer.textContent = 'Không thể kiểm tra cấu hình.';
