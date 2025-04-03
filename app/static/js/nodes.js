@@ -175,17 +175,71 @@ function openCheckConfigModal(nodeId, type) {
         const modal = new bootstrap.Modal(document.getElementById('checkConfigModal'));
         document.getElementById('checkConfigNodeId').value = nodeId;
         document.getElementById('checkConfigType').value = type;
-        document.getElementById('checkConfigResult').innerHTML = 'Chưa kiểm tra.';
         
-        // Update modal title based on type
+        // Get node data to access port
+        const nodeElement = document.querySelector(`[data-node-id="${nodeId}"]`).closest('tr');
+        const nodeData = JSON.parse(decodeURIComponent(
+            nodeElement.querySelector('[data-node]').getAttribute('data-node')
+        ));
+        
+        // Update modal title
         const modalTitle = document.querySelector('#checkConfigModal .modal-title');
         modalTitle.textContent = `Kiểm tra cấu hình ${type === 'nodeExporter' ? 'Node Exporter' : 'Promtail'}`;
+        
+        // Show/hide relevant config sections and set initial values
+        if (type === 'nodeExporter') {
+            document.getElementById('nodeExporterConfig').style.display = 'block';
+            document.getElementById('promtailConfig').style.display = 'none';
+            document.getElementById('nodeExporterPort').value = nodeData.portNodeExporter;
+        } else {
+            document.getElementById('nodeExporterConfig').style.display = 'none';
+            document.getElementById('promtailConfig').style.display = 'block';
+            document.getElementById('promtailPort').value = nodeData.portPromtail;
+            document.getElementById('promtailNameLogs').value = '';
+            // Clear the log path value but show it as placeholder
+            document.getElementById('promtailLogPath').value = '';
+            document.getElementById('promtailLogPath').placeholder = '/var/log/*.log';
+        }
+        
+        // Update initial command
+        updateInstallCommand();
         
         modal.show();
     } catch (error) {
         console.error('Error opening config modal:', error);
         alert('Không thể mở form kiểm tra cấu hình');
     }
+}
+
+function updateInstallCommand() {
+    const type = document.getElementById('checkConfigType').value;
+    let command = '';
+    
+    if (type === 'nodeExporter') {
+        const port = document.getElementById('nodeExporterPort').value;
+        command = `wget https://raw.githubusercontent.com/NHDuong0912/scripts/main/script_node_exporter.sh -O script_node_exporter.sh && chmod +x script_node_exporter.sh && ./script_node_exporter.sh ${port}`;
+    } else {
+        const port = document.getElementById('promtailPort').value;
+        const nameLogs = document.getElementById('promtailNameLogs').value || '<namelogs>';
+        const logPath = document.getElementById('promtailLogPath').value || '/var/log/*.log';
+        command = `wget https://raw.githubusercontent.com/NHDuong0912/scripts/main/script_promtail.sh -O script_promtail.sh && chmod +x script_promtail.sh && ./script_promtail.sh ${port} ${nameLogs} "${logPath}"`;
+    }
+    
+    document.getElementById('installCommand').value = command;
+}
+
+// Add copy command function
+function copyCommand(button) {
+    const input = button.closest('.input-group').querySelector('input');
+    input.select();
+    document.execCommand('copy');
+    
+    // Show feedback
+    const icon = button.querySelector('i');
+    icon.classList.replace('bi-clipboard', 'bi-check2');
+    setTimeout(() => {
+        icon.classList.replace('bi-check2', 'bi-clipboard');
+    }, 2000);
 }
 
 // Perform manual check
