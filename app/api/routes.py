@@ -3,6 +3,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.models.models import Node, User, Alert
 from app import db
 import requests
+from requests.exceptions import RequestException
 
 api = Blueprint('api', __name__)
 
@@ -135,3 +136,46 @@ def manage_alerts(node_id):
     except Exception as e:
         print(f"Error managing alerts: {str(e)}")  # Debug log
         return jsonify({'error': str(e)}), 500
+
+@api.route('/nodes/<int:node_id>/check-service', methods=['POST'])
+@jwt_required()
+def check_service(node_id):
+    try:
+        data = request.get_json()
+        service_type = data.get('type')
+        ip = data.get('ip')
+        port = data.get('port')
+
+        # Set up request parameters
+        url = f'http://{ip}:{port}/{"metrics" if service_type == "nodeExporter" else "ready"}'
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        timeout = 5
+
+        try:
+            response = requests.get(url, headers=headers, timeout=timeout, verify=False)
+            return jsonify({
+                'status': 'success' if response.status_code == 200 else 'error',
+                'message': ('Service is running' if response.status_code == 200 
+                          else f'Service responded with status {response.status_code}')
+            })
+        except requests.exceptions.ConnectTimeout:
+            return jsonify({
+                'status': 'error',
+                'message': f'Connection timed out after {timeout} seconds'
+            }), 408
+        except requests.exceptions.ConnectionError:
+            return jsonify({
+                'status': 'error',
+                'message': 'Could not connect to service'
+            }), 503
+        except RequestException as e:
+            return jsonify({
+                'status': 'error',
+                'message': str(e)
+            }), 500
+
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'Server error: {str(e)}'
+        }), 500

@@ -20,6 +20,15 @@ document.addEventListener('DOMContentLoaded', function() {
             deleteNode(nodeId);
         });
         document.getElementById('saveAlertButton').addEventListener('click', saveAlert);
+
+        // Reset modal content when it's hidden
+        const checkConfigModal = document.getElementById('checkConfigModal');
+        checkConfigModal.addEventListener('hidden.bs.modal', function () {
+            document.getElementById('checkConfigResult').innerHTML = 
+                '<p class="text-muted">Nhấn nút kiểm tra để bắt đầu.</p>';
+            document.getElementById('nodeExporterConfig').style.display = 'none';
+            document.getElementById('promtailConfig').style.display = 'none';
+        });
     } catch (error) {
         console.error('Error setting up event listeners:', error);
     }
@@ -172,42 +181,54 @@ function updateNodesTable(nodes) {
 // Open the manual check modal
 function openCheckConfigModal(nodeId, type) {
     try {
-        const modal = new bootstrap.Modal(document.getElementById('checkConfigModal'));
-        document.getElementById('checkConfigNodeId').value = nodeId;
-        document.getElementById('checkConfigType').value = type;
-        
-        // Get node data to access port
+        // Get node data first
         const nodeElement = document.querySelector(`[data-node-id="${nodeId}"]`).closest('tr');
         const nodeData = JSON.parse(decodeURIComponent(
             nodeElement.querySelector('[data-node]').getAttribute('data-node')
         ));
+
+        // Initialize modal
+        const modal = document.getElementById('checkConfigModal');
+        if (!modal) throw new Error('Modal element not found');
+
+        // Get required elements
+        const nodeExporterConfig = document.getElementById('nodeExporterConfig');
+        const promtailConfig = document.getElementById('promtailConfig');
+        
+        if (!nodeExporterConfig || !promtailConfig) {
+            throw new Error('Configuration sections not found');
+        }
+
+        const bootstrapModal = new bootstrap.Modal(modal);
+        
+        // Set hidden inputs
+        document.getElementById('checkConfigNodeId').value = nodeId;
+        document.getElementById('checkConfigType').value = type;
         
         // Update modal title
-        const modalTitle = document.querySelector('#checkConfigModal .modal-title');
+        const modalTitle = modal.querySelector('.modal-title');
         modalTitle.textContent = `Kiểm tra cấu hình ${type === 'nodeExporter' ? 'Node Exporter' : 'Promtail'}`;
         
-        // Show/hide relevant config sections and set initial values
+        // Show/hide relevant config sections
         if (type === 'nodeExporter') {
-            document.getElementById('nodeExporterConfig').style.display = 'block';
-            document.getElementById('promtailConfig').style.display = 'none';
+            nodeExporterConfig.style.display = 'block';
+            promtailConfig.style.display = 'none';
             document.getElementById('nodeExporterPort').value = nodeData.portNodeExporter;
         } else {
-            document.getElementById('nodeExporterConfig').style.display = 'none';
-            document.getElementById('promtailConfig').style.display = 'block';
+            nodeExporterConfig.style.display = 'none';
+            promtailConfig.style.display = 'block';
             document.getElementById('promtailPort').value = nodeData.portPromtail;
             document.getElementById('promtailNameLogs').value = '';
-            // Clear the log path value but show it as placeholder
             document.getElementById('promtailLogPath').value = '';
-            document.getElementById('promtailLogPath').placeholder = '/var/log/*.log';
         }
         
         // Update initial command
         updateInstallCommand();
         
-        modal.show();
+        bootstrapModal.show();
     } catch (error) {
         console.error('Error opening config modal:', error);
-        alert('Không thể mở form kiểm tra cấu hình');
+        alert('Không thể mở form kiểm tra cấu hình: ' + error.message);
     }
 }
 
@@ -249,45 +270,58 @@ async function performManualCheck() {
     const resultContainer = document.getElementById('checkConfigResult');
     
     try {
-        // Get node data
+        // Get port based on service type
+        const port = type === 'nodeExporter' 
+            ? document.getElementById('nodeExporterPort').value
+            : document.getElementById('promtailPort').value;
+            
+        // Get IP from the node data attribute
         const nodeElement = document.querySelector(`[data-node-id="${nodeId}"]`).closest('tr');
         const nodeData = JSON.parse(decodeURIComponent(
             nodeElement.querySelector('[data-node]').getAttribute('data-node')
         ));
+        
+        resultContainer.innerHTML = `
+            <div class="alert alert-info">
+                <i class="bi bi-hourglass-split me-2"></i>
+                Đang kiểm tra ${type === 'nodeExporter' ? 'Node Exporter' : 'Promtail'}...
+            </div>`;
 
-        if (type === 'promtail') {
-            resultContainer.textContent = 'Đang kiểm tra Promtail...';
-            
-            // Check Promtail ready endpoint
-            const promtailUrl = `http://${nodeData.ipAddress}:${nodeData.portPromtail}/ready`;
-            const response = await fetch(promtailUrl);
-            
-            if (response.ok) {
-                resultContainer.innerHTML = '<p class="text-success">Promtail đang hoạt động</p>';
-            } else {
-                resultContainer.innerHTML = '<p class="text-danger">Promtail không phản hồi</p>';
-            }
+        const response = await fetch(`/api/nodes/${nodeId}/check-service`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+            },
+            body: JSON.stringify({
+                type: type,
+                ip: nodeData.ipAddress,
+                port: port
+            })
+        });
+
+        const result = await response.json();
+        
+        if (response.ok && result.status === 'success') {
+            resultContainer.innerHTML = `
+                <div class="alert alert-success">
+                    <i class="bi bi-check-circle me-2"></i>
+                    ${type === 'nodeExporter' ? 'Node Exporter' : 'Promtail'} đang hoạt động trên port ${port}
+                </div>`;
         } else {
-            // Existing Node Exporter check
-            resultContainer.textContent = 'Đang kiểm tra Node Exporter...';
-            
-            const response = await fetch(`/api/nodes/${nodeId}/metrics`, {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-                }
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to fetch metrics');
-            }
-
-            const metrics = await response.json();
-            resultContainer.innerHTML = `<p>${metrics.nodeExporter}</p>`;
+            resultContainer.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-x-circle me-2"></i>
+                    ${result.message || 'Không thể kiểm tra dịch vụ'}
+                </div>`;
         }
     } catch (error) {
-        console.error('Error performing manual check:', error);
-        resultContainer.innerHTML = '<p class="text-danger">Không thể kiểm tra cấu hình</p>';
+        console.error('Error checking service:', error);
+        resultContainer.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                Lỗi khi kiểm tra: ${error.message}
+            </div>`;
     }
 }
 
