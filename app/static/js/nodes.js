@@ -76,10 +76,24 @@ async function loadNodes() {
                 }
 
                 const metrics = await metricsResponse.json();
-                return { ...node, metrics };
+                
+                // Check if either service is Active
+                const nodeStatus = (metrics.nodeExporter === 'Active' || metrics.promtail === 'Active') 
+                    ? 'active' 
+                    : 'inactive';
+                
+                return { 
+                    ...node, 
+                    metrics,
+                    status: nodeStatus 
+                };
             } catch (error) {
                 console.error(`Error fetching metrics for node ${node.id}:`, error);
-                return { ...node, metrics: { nodeExporter: 'Null', promtail: 'Null' } };
+                return { 
+                    ...node, 
+                    metrics: { nodeExporter: 'Inactive', promtail: 'Inactive' },
+                    status: 'inactive'
+                };
             }
         });
 
@@ -118,10 +132,10 @@ function updateNodesTable(nodes) {
         let nodesHtml = '';
 
         nodes.forEach((node, index) => {
-            const statusClass = node.status === 'active' ? 'success' : 'danger';
-            const statusText = node.status === 'active' ? 'Hoạt động' : 'Không hoạt động';
-            const nodeExporter = node.metrics?.nodeExporter || 'NodeExporter Null';
-            const promtail = node.metrics?.promtail || 'Promtail Null';
+            // Update status based on either service being active
+            const isActive = node.metrics?.nodeExporter === 'Active' || node.metrics?.promtail === 'Active';
+            const statusClass = isActive ? 'success' : 'danger';
+            const statusText = isActive ? 'Hoạt động' : 'Không hoạt động';
 
             nodesHtml += `
                 <tr>
@@ -131,14 +145,16 @@ function updateNodesTable(nodes) {
                     <td><span class="badge bg-${statusClass}">${statusText}</span></td>
                     <td>
                         <div class="d-flex align-items-center mb-2">
-                            <span class="badge bg-warning text-dark me-2">${nodeExporter}</span>
-                            <button class="btn btn-sm btn-link text-info p-0" onclick="openCheckConfigModal(${node.id}, 'nodeExporter')">
+                            <span class="badge bg-pink text-dark me-2">Node Exporter:</span>
+                            <span class="badge border border-pink bg-light text-dark">Port ${node.portNodeExporter}</span>
+                            <button class="btn btn-sm btn-link text-info p-0 ms-2" onclick="openCheckConfigModal(${node.id}, 'nodeExporter')">
                                 <i class="bi bi-gear"></i>
                             </button>
                         </div>
                         <div class="d-flex align-items-center">
-                            <span class="badge bg-primary me-2">${promtail}</span>
-                            <button class="btn btn-sm btn-link text-info p-0" onclick="openCheckConfigModal(${node.id}, 'promtail')">
+                            <span class="badge bg-info text-dark me-2">Promtail:</span>
+                            <span class="badge border border-info bg-light text-dark">Port ${node.portPromtail}</span>
+                            <button class="btn btn-sm btn-link text-info p-0 ms-2" onclick="openCheckConfigModal(${node.id}, 'promtail')">
                                 <i class="bi bi-gear"></i>
                             </button>
                         </div>

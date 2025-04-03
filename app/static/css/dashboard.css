@@ -50,3 +50,20 @@
     padding-top: 4.5rem;
     width: 100%;
 }
+
+.bg-pink {
+    background-color: #ff69b4 !important;
+}
+
+.border-pink {
+    border-color: #ff69b4 !important;
+}
+
+.badge {
+    font-size: 0.875rem;
+    padding: 0.4em 0.8em;
+}
+
+.badge.border {
+    border-width: 2px !important;
+}

@@ -73,34 +73,50 @@ def delete_node(node_id):
 
 @api.route('/nodes/<int:node_id>/metrics', methods=['GET'])
 @jwt_required()
-def check_node_metrics(node_id):
+def get_node_metrics(node_id):
     try:
-        current_user_id = get_jwt_identity()
-        node = Node.query.filter_by(id=node_id, ownerId=current_user_id).first()
-
-        if not node:
-            return jsonify({'error': 'Node not found'}), 404
-
-        # Check Node Exporter
-        node_exporter_url = f"http://{node.ipAddress}:{node.portNodeExporter}/metrics"
+        node = Node.query.get_or_404(node_id)
+        
+        # Check Node Exporter status
+        nodeExporter_status = 'Inactive'
         try:
-            response = requests.get(node_exporter_url, timeout=5)
-            node_exporter_status = f"NodeExporter {node.portNodeExporter}" if response.status_code == 200 else "NodeExporter Null"
-        except requests.exceptions.RequestException:
-            node_exporter_status = "NodeExporter Null"
+            response = requests.get(
+                f'http://{node.ipAddress}:{node.portNodeExporter}/metrics', 
+                timeout=2,
+                verify=False
+            )
+            if response.ok:
+                nodeExporter_status = 'Active'
+        except:
+            pass
 
-        # Check Promtail
-        promtail_url = f"http://{node.ipAddress}:{node.portPromtail}/metrics"
+        # Check Promtail status
+        promtail_status = 'Inactive'
         try:
-            response = requests.get(promtail_url, timeout=5)
-            promtail_status = f"Promtail {node.portPromtail}" if response.status_code == 200 else "Promtail Null"
-        except requests.exceptions.RequestException:
-            promtail_status = "Promtail Null"
+            response = requests.get(
+                f'http://{node.ipAddress}:{node.portPromtail}/ready', 
+                timeout=2,
+                verify=False
+            )
+            if response.ok:
+                promtail_status = 'Active'
+        except:
+            pass
+
+        # Update node status based on either service being active
+        if nodeExporter_status == 'Active' or promtail_status == 'Active':
+            node.status = 'active'
+        else:
+            node.status = 'inactive'
+        
+        db.session.commit()
 
         return jsonify({
-            'nodeExporter': node_exporter_status,
-            'promtail': promtail_status
+            'nodeExporter': nodeExporter_status,
+            'promtail': promtail_status,
+            'status': node.status
         })
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
