@@ -224,6 +224,11 @@
                         <label class="form-label">Port Node Exporter:</label>
                         <input type="number" class="form-control" id="nodeExporterPort" readonly>
                     </div>
+                    <div class="mt-3">
+                        <button id="connectNodeExporterBtn" class="btn btn-success" onclick="connectNodeExporter(this)" data-connected="false">
+                            <i class="bi bi-link-45deg"></i> Kết nối với Prometheus
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Promtail Config -->

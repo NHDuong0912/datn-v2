@@ -28,6 +28,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 '<p class="text-muted">Nhấn nút kiểm tra để bắt đầu.</p>';
             document.getElementById('nodeExporterConfig').style.display = 'none';
             document.getElementById('promtailConfig').style.display = 'none';
+            
+            // Reset connect button state
+            const connectButton = document.getElementById('connectNodeExporterBtn');
+            if (connectButton) {
+                connectButton.setAttribute('data-connected', 'false');
+                connectButton.classList.replace('btn-secondary', 'btn-success');
+                connectButton.innerHTML = '<i class="bi bi-link-45deg"></i> Kết nối với Prometheus';
+                connectButton.disabled = false;
+            }
         });
     } catch (error) {
         console.error('Error setting up event listeners:', error);
@@ -245,6 +254,49 @@ function openCheckConfigModal(nodeId, type) {
     } catch (error) {
         console.error('Error opening config modal:', error);
         alert('Không thể mở form kiểm tra cấu hình: ' + error.message);
+    }
+}
+
+async function connectNodeExporter(button) {
+    if (button.getAttribute('data-connected') === 'true') {
+        alert('Node Exporter đã được kết nối!');
+        return;
+    }
+
+    try {
+        // Get the node data
+        const nodeId = document.getElementById('checkConfigNodeId').value;
+        const nodeElement = document.querySelector(`[data-node-id="${nodeId}"]`).closest('tr');
+        const nodeData = JSON.parse(decodeURIComponent(
+            nodeElement.querySelector('[data-node]').getAttribute('data-node')
+         ));
+        const port = document.getElementById('nodeExporterPort').value;
+
+        const response = await fetch('/api/nodes/connect-node-exporter', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+            },
+            body: JSON.stringify({
+                ip: nodeData.ipAddress,
+                port: port
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to connect Node Exporter');
+        }
+
+        // Update button state
+        button.setAttribute('data-connected', 'true');
+        button.classList.replace('btn-success', 'btn-secondary');
+        button.innerHTML = '<i class="bi bi-link"></i> Đã kết nối';
+        button.disabled = true;
+
+    } catch (error) {
+        console.error('Error connecting Node Exporter:', error);
+        alert('Không thể kết nối Node Exporter: ' + error.message);
     }
 }
 

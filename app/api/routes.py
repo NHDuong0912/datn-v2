@@ -4,6 +4,8 @@ from app.models.models import Node, User, Alert
 from app import db
 import requests
 from requests.exceptions import RequestException
+import subprocess
+import json
 
 api = Blueprint('api', __name__)
 
@@ -195,3 +197,35 @@ def check_service(node_id):
             'status': 'error',
             'message': f'Server error: {str(e)}'
         }), 500
+
+@api.route('/nodes/connect-node-exporter', methods=['POST'])
+@jwt_required()
+def connect_node_exporter():
+    try:
+        data = request.get_json()
+        ip = data.get('ip')
+        port = data.get('port')
+        
+        if not ip or not port:
+            return jsonify({'error': 'Missing IP or port'}), 400
+
+        target = f"{ip}:{port}"
+        file_path = "/root/prometheus-config/tg_prometheus.json"
+        
+        # Construct the jq command
+        command = f"""
+        NEW_TARGET="{target}"
+        FILE_PATH="{file_path}"
+        jq --arg new_target "$NEW_TARGET" '.[] .targets += [$new_target]' "$FILE_PATH" > "$FILE_PATH.tmp" && mv "$FILE_PATH.tmp" "$FILE_PATH"
+        """
+        
+        # Execute the command
+        result = subprocess.run(command, shell=True, capture_output=True, text=True)
+        
+        if result.returncode != 0:
+            raise Exception(f"Command failed: {result.stderr}")
+
+        return jsonify({'status': 'success', 'message': 'Node Exporter connected successfully'})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
