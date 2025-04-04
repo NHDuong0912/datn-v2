@@ -64,10 +64,11 @@ class Node(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100))
     ipAddress = db.Column(db.String(100))
-    status = db.Column(db.String(50))
+    status = db.Column(db.String(20), default='inactive')
     portNodeExporter = db.Column(db.Integer)
     portPromtail = db.Column(db.Integer)
     ownerId = db.Column(db.Integer, db.ForeignKey('users.id'))
+    last_checked = db.Column(db.DateTime, nullable=True)
 
     @classmethod
     def get_nodes_by_user(cls, user_id, search=None, status=None):
@@ -144,7 +145,8 @@ class Node(db.Model):
             'ipAddress': self.ipAddress,
             'status': self.status,
             'portNodeExporter': self.portNodeExporter,
-            'portPromtail': self.portPromtail
+            'portPromtail': self.portPromtail,
+            'last_checked': self.last_checked.isoformat() if self.last_checked else None
         }
 
 class AccessLog(db.Model):
